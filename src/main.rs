@@ -2,31 +2,13 @@ use std::fmt;
 use std::result::Result::{self, Ok, Err};
 use std::ops::Index;
 
+const BOARD_SIZE: usize = 19;
+
 #[derive(Clone, Copy)]
 enum Tile {
     White,
     Black,
     Empty
-}
-
-type Coord = (usize, usize);
-
-struct Board {
-    tiles: [[Tile; 19]; 19]
-}
-
-impl Board {
-    fn new() -> Board {
-        Board{ tiles: [[Tile::Empty; 19]; 19] }
-    }
-}
-
-impl Index<Coord> for Board {
-    type Output = Tile;
-
-    fn index(&self, index:Coord) -> &Tile {
-        &self.tiles[index.0][index.1]
-    }
 }
 
 impl fmt::Display for Tile {
@@ -38,6 +20,67 @@ impl fmt::Display for Tile {
                 Tile::Empty => ".",
             }
         )
+    }
+}
+
+#[derive(Debug)]
+struct Coord {
+    x: usize,
+    y: usize
+}
+
+struct Board {
+    tiles: [[Tile; BOARD_SIZE]; BOARD_SIZE]
+}
+
+impl Board {
+
+    fn new() -> Board {
+        Board{ tiles: [[Tile::Empty; BOARD_SIZE]; BOARD_SIZE] }
+    }
+
+    fn place(&mut self, index: Coord, color: Tile) -> Result<(), String> {
+        if index.x >= BOARD_SIZE && index.y >= BOARD_SIZE {
+            return Err(format!("place out-of-bound: {:?}", index));
+        }
+
+        try!(match color {
+            Tile::Empty => Err(format!("invalid color: {}", color)),
+            _ => Ok(())
+        });
+
+        let tile = &mut self.tiles[index.y][index.x];
+
+        try!(match *tile {
+            Tile::Empty => Ok(()),
+            _ => Err(format!("place on existing piece: {:?} -> {}", index, tile))
+        });
+
+        *tile = color;
+
+        Ok(())
+    }
+}
+
+impl Index<Coord> for Board {
+    type Output = Tile;
+
+    fn index(&self, index:Coord) -> &Tile {
+        &self.tiles[index.y][index.x]
+    }
+}
+
+impl fmt::Display for Board {
+    fn fmt(&self, formatter: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        for line in &self.tiles {
+            for tile in line {
+                try!(tile.fmt(formatter));
+                try!(formatter.write_str(" "));
+            }
+            try!(formatter.write_str("\n"));
+        }
+
+        Ok(())
     }
 }
 
@@ -56,24 +99,23 @@ impl fmt::Display for Tile {
 
 fn neighbors(coord:Coord) -> Vec<Coord> {
     let mut output:Vec<Coord> = Vec::new();
+
     for offset in &[-1, 1] {
-        if (coord.0 + offset > 0) && (coord.0 + offset < 18) {
-            output.push((coord.0 + offset, coord.1));
+        if coord.x + offset < BOARD_SIZE {
+            output.push(Coord{ x: coord.x + offset, y: coord.y });
         }
-        if (coord.1 + offset > 0) && (coord.1 + offset < 18) {
-            output.push((coord.0, coord.1 + offset));
+        if coord.y + offset < BOARD_SIZE {
+            output.push(Coord{ x: coord.x, y: coord.y + offset });
         }
     }
     output
 }
 
-fn main(){
-    let board = Board::new();
-    // let board: Vec<Vec<Tile>> = vec![Vec::with_capacity(19), 19];
-    for line in &board.tiles {
-        for tile in line {
-            print!("{} ", tile);
-        }
-        print!("\n",);
-    }
+fn main() {
+    let mut board = Board::new();
+
+    board.place(Coord{ x: 10, y: 10}, Tile::White).ok().expect("blah");
+    board.place(Coord{ x: 11, y: 11}, Tile::Black).ok().expect("blah");
+
+    print!("{}", board)
 }
