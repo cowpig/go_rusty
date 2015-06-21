@@ -41,9 +41,11 @@ impl Board {
         Board{ tiles: [[Tile::Empty; BOARD_SIZE]; BOARD_SIZE] }
     }
 
-    fn place(&mut self, index: Coord, color: Tile) -> Result<(), String> {
-        if index.x >= BOARD_SIZE && index.y >= BOARD_SIZE {
-            return Err(format!("place out-of-bound: {:?}", index));
+    fn place(&mut self, coord: Coord, color: Tile) -> Result<(), String> {
+        println!("Placing stone at: ({:?})", coord);
+
+        if coord.x >= BOARD_SIZE && coord.y >= BOARD_SIZE {
+            return Err(format!("place out-of-bound: {:?}", coord));
         }
 
         try!(match color {
@@ -51,34 +53,53 @@ impl Board {
             _ => Ok(())
         });
 
-        let tile = &mut self.tiles[index.y][index.x];
-
-        try!(match *tile {
+        try!(match self[coord.clone()] {
             Tile::Empty => Ok(()),
-            _ => Err(format!("place on existing piece: {:?} -> {}", index, tile))
+            _ => Err(format!("place on existing piece: {:?} -> {}", coord, self[coord.clone()]))
         });
 
-        *tile = color;
+        if self.get_captures(coord.clone(), color.clone()).is_some() {
+            return Err(format!("Suicidal move!"));
+        }
 
+        self.tiles[coord.y][coord.x] = color;
+
+        for neighbor in neighbors(coord.clone()) {
+            if let Some(mut captures) = self.get_captures(
+                    neighbor, if color==Tile::Black {Tile::White} else {color}) {
+                for capture in captures {
+                    self.tiles[capture.y][capture.x] = Tile::Empty;
+                }
+            }
+        }
+
+        println!("Resulting board:\n({})", self);
         Ok(())
     }
+
     fn get_captures(&self, coord:Coord, color:Tile) -> Option<HashSet<Coord>> {
         let mut group:HashSet<Coord> = HashSet::new();
         let mut to_check:Vec<Coord> = Vec::new();
         group.insert(coord.clone());
-        to_check.push(coord.clone());
+        for neighbor in neighbors(coord.clone()) {
+            to_check.push(neighbor);
+        }
 
+        // println!("starting with {:?}, to_check: {:?}", group, to_check);
+        
         while let Some(coord_to_check) = to_check.pop() {
             for neighbor in neighbors(coord_to_check.clone()) {
                 if self[coord_to_check.clone()] == Tile::Empty {
+                    // println!("returning None");
                     return None;
                 }
                 if !group.contains(&neighbor) && self[coord_to_check.clone()] == color {
                     to_check.push(neighbor);
+                    group.insert(coord_to_check.clone());
                 }
             }
-            group.insert(coord_to_check);
         }
+        // println!("returning {:?}", group);
         Some(group)
     }
 }
@@ -105,19 +126,15 @@ impl fmt::Display for Board {
     }
 }
 
-
-
 fn neighbors(coord:Coord) -> Vec<Coord> {
     let mut output:Vec<Coord> = Vec::new();
 
-    for offset in &[-1, 1] {
-        if coord.x + offset < BOARD_SIZE {
-            output.push(Coord{ x: coord.x + offset, y: coord.y });
-        }
-        if coord.y + offset < BOARD_SIZE {
-            output.push(Coord{ x: coord.x, y: coord.y + offset });
-        }
-    }
+    if coord.x > 0 { output.push(Coord{ x: coord.x - 1, y: coord.y     }) }
+    if coord.y > 0 { output.push(Coord{ x: coord.x,     y: coord.y - 1 }) }
+
+    if coord.x < BOARD_SIZE - 1 { output.push(Coord{ x: coord.x + 1, y: coord.y     }) }
+    if coord.y < BOARD_SIZE - 1 { output.push(Coord{ x: coord.x,     y: coord.y + 1 }) }
+
     output
 }
 
@@ -125,7 +142,9 @@ fn main() {
     let mut board = Board::new();
 
     board.place(Coord{ x: 10, y: 10}, Tile::White).ok().expect("blah");
-    board.place(Coord{ x: 11, y: 11}, Tile::Black).ok().expect("blah");
-
-    print!("{}", board)
+    board.place(Coord{ x: 11, y: 10}, Tile::Black).ok().expect("blah");
+    board.place(Coord{ x: 9, y: 10}, Tile::Black).ok().expect("blah");
+    board.place(Coord{ x: 10, y: 9}, Tile::Black).ok().expect("blah");
+    board.place(Coord{ x: 10, y: 11}, Tile::Black).ok().expect("blah");
+    board.place(Coord{ x: 10, y: 10}, Tile::White).err().expect("shoulda yelled at u");
 }
