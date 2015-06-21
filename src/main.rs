@@ -1,11 +1,14 @@
 use std::fmt;
 use std::result::Result::{self, Ok, Err};
 use std::ops::Index;
+use std::collections::HashSet;
+
 
 const BOARD_SIZE: usize = 19;
 
-#[derive(Clone, Copy)]
-enum Tile {
+#[derive(Clone, Copy, Eq, PartialEq)]
+enum Tile 
+{
     White,
     Black,
     Empty
@@ -23,7 +26,7 @@ impl fmt::Display for Tile {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Hash, Eq, PartialEq, Clone)]
 struct Coord {
     x: usize,
     y: usize
@@ -34,7 +37,6 @@ struct Board {
 }
 
 impl Board {
-
     fn new() -> Board {
         Board{ tiles: [[Tile::Empty; BOARD_SIZE]; BOARD_SIZE] }
     }
@@ -60,6 +62,25 @@ impl Board {
 
         Ok(())
     }
+    fn get_captures(&self, coord:Coord, color:Tile) -> Option<HashSet<Coord>> {
+        let mut group:HashSet<Coord> = HashSet::new();
+        let mut to_check:Vec<Coord> = Vec::new();
+        group.insert(coord.clone());
+        to_check.push(coord.clone());
+
+        while let Some(coord_to_check) = to_check.pop() {
+            for neighbor in neighbors(coord_to_check.clone()) {
+                if self[coord_to_check.clone()] == Tile::Empty {
+                    return None;
+                }
+                if !group.contains(&neighbor) && self[coord_to_check.clone()] == color {
+                    to_check.push(neighbor);
+                }
+            }
+            group.insert(coord_to_check);
+        }
+        Some(group)
+    }
 }
 
 impl Index<Coord> for Board {
@@ -84,18 +105,7 @@ impl fmt::Display for Board {
     }
 }
 
-// fn get_captures(board:&Board, coord:Coord ) -> Set<Coord> {
 
-//     Set::new()
-// }
-
-// fn get_captures(board:&Board, coord:Coord, group:Set<Coord>, color:Tile) -> Set<Coord> {
-//     for neighbor in neighbors(group) {
-//         if !(group.contains(neighbor) || board[coord] == color) {
-
-//         }
-//     }
-// }
 
 fn neighbors(coord:Coord) -> Vec<Coord> {
     let mut output:Vec<Coord> = Vec::new();
